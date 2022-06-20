@@ -21,17 +21,14 @@ fun makeMove(request: MoveRequest): MoveResponse {
         val newPosition = me.head + move
 
         // Calculate the amount of board space left
-        val spaceLeft = request.nextPossibilities(newPosition)
-        // Give that a big priority
-        var spaceScore = spaceLeft * 10
-        // If there will be not enough space left, this is probably
-        // a really bad move to do
-        if (spaceLeft <= me.length) spaceScore -= 1000
+        val spaceLeft = request.areaControl(newPosition)
 
-        // Find out if we are hungry and therefore set a multiplier
-        val foodMultiplier = if (me.health < 50) 1.5 else 0.5
+        // If there will be not enough space left, this is probably
+        // an awful move to do
+        val spacePenalty = if (spaceLeft <= me.length) 1000 else 0
+
         // Calculate food score based on distance to closest food
-        val foodScore = -(closestFood?.distanceTo(newPosition)?.toInt() ?: 0) * foodMultiplier
+        val foodScore = -(closestFood?.manhattanDistanceTo(newPosition) ?: 0)
 
         // Define a function to determine if we could bump into
         // a given snake the next tick with the new calculated position
@@ -46,8 +43,11 @@ fun makeMove(request: MoveRequest): MoveResponse {
         val hasKillable = killable.any(isBumpable)
         val killScore = if (hasKillable && spaceLeft > me.length) 10 else -10
 
+        // Find out if we are hungry and therefore set a multiplier
+        val foodMultiplier = if (me.health < 50) 1.5 else 0.5
+
         // Find the best move by summing the scores
-        foodScore + spaceScore + scaryScore + killScore
+        foodScore * foodMultiplier + spaceLeft * 10 + scaryScore + killScore - spacePenalty
     } ?: Direction.DOWN // Defaulting to "down"
 
     // Send back the response to the server
@@ -63,55 +63,39 @@ fun MoveRequest.bumpableSnakes(position: Position = you.head) = board.snakes
         x + y <= 2
     }.partition { it.length >= you.length }
 
-fun Board.wallDistance(position: Position): Int {
-    val rect = rectFromSize(width, height)
-    val aDelta = (rect.a - position).abs()
-    val bDelta = (rect.b - position).abs()
-
-    return minOf(aDelta.x, aDelta.y, bDelta.x, bDelta.y)
-}
-
 // Find the "best" position of food to go to
 // Null when there is no food on the board or no
 // valid path was found
-fun Board.bestFood(position: Position): Position? {
-    if (food.isEmpty()) return null
-
-    // BFS algorithm
-    val queue = ArrayDeque<Position>()
-    val seen = hashSetOf<Position>()
-    val process = { pos: Position ->
-        queue.add(pos)
-        seen.add(pos)
-    }
-
-    process(position)
-    while (!queue.isEmpty()) {
-        val next = queue.removeFirst()
-        if (next in food) return next
-        next.adjacent()
-            .filter { boundsCheck(it) && it !in seen }
-            .forEach { process(it) }
-    }
-
-    return null
-}
+fun Board.bestFood(position: Position) = bfs(
+    initial = position,
+    condition = { it in food },
+    searcher = { curr -> curr.adjacent().filter { boundsCheck(it) } }
+)
 
 // Flood fill the board based on if the next spot is valid
 // TODO: keep track of snake movement (they grow and shrink)
-fun MoveRequest.nextPossibilities(position: Position): Int {
-    // Flood fill algorithm
-    val queue = ArrayDeque<Position>()
-    queue.add(position)
+// Returns the amount of squares we have control over
+fun MoveRequest.areaControl(position: Position) = floodFill(
+    initial = position,
+    condition = { next ->
+        val inBounds = board.boundsCheck(next)
+        val controlling = board.controllingSnake(position) == you
+        val (scary) = bumpableSnakes(next)
+        inBounds && controlling && scary.isEmpty()
+    },
+    searcher = { next -> next.adjacent() }
+).size
 
-    return buildSet {
-        while (!queue.isEmpty()) {
-            val next = queue.removeFirst()
-            if (board.boundsCheck(next) && add(next)) {
-                next.adjacent().filterNot { contains(it) }.forEach { queue.add(it) }
-            }
-        }
-    }.size
+// Returns what snake can reach a given position the fastest
+// Null when there are no snakes on the board
+fun Board.controllingSnake(position: Position): BattleSnake? {
+    val controllers = snakes.sortedBy { it.head.manhattanDistanceTo(position) }
+    val closest = controllers.firstOrNull() ?: return null
+    val best = closest.head.manhattanDistanceTo(position)
+
+    return controllers
+        .takeWhile { it.head.manhattanDistanceTo(position) == best }
+        .maxByOrNull { it.length }
 }
 
 // Check if a position is a valid position

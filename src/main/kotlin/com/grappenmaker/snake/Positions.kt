@@ -36,8 +36,13 @@ operator fun Position.minus(other: Position) = Position(x - other.x, y - other.y
 operator fun Position.plus(other: Direction) = plus(other.position)
 
 fun Position.abs() = Position(abs(x), abs(y))
-fun Position.distanceTo(other: Position) =
+fun Position.euclideanDistanceTo(other: Position) =
     sqrt((other.x - x).toDouble().pow(2) + (other.y - y).toDouble().pow(2))
+
+fun Position.manhattanDistanceTo(other: Position): Int {
+    val (x, y) = (this - other).abs()
+    return x + y
+}
 
 fun Position.isNextTo(other: Position) = abs(x - other.x) == 0 || abs(y - other.y) == 0
 fun Position.adjacent() = listOf(

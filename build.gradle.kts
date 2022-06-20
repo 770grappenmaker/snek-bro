@@ -15,7 +15,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.3")
 
     // Ktor dependencies
-    serverImplementation("core", "netty", "content-negotiation", "call-logging")
+    serverImplementation("core", "netty", "content-negotiation", "call-logging", "auto-head-response")
     ktorImplementation("serialization-kotlinx-json")
     implementation("ch.qos.logback:logback-classic:1.2.11")
 }

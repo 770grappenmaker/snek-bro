@@ -28,7 +28,7 @@ fun Application.setupRouting(configuration: Configuration) = routing {
         val moveRequest = call.receive<MoveRequest>()
         val taken = measureTimeMillis { call.respond(makeMove(moveRequest)) }
         if (taken > 100) {
-            println("Took way too long: ${taken}ms")
+            println("Turn ${moveRequest.turn} took way too long to process! (${taken}ms)")
         }
     }
 
