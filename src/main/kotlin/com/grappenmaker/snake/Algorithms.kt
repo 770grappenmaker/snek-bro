@@ -1,56 +1,95 @@
 package com.grappenmaker.snake
 
-class SearchContext<T>(
-    initial: T,
-    val queue: ArrayDeque<T> = ArrayDeque(),
-    val seen: HashSet<T> = hashSetOf()
-) {
-    init {
-        process(initial)
-    }
-
-    fun process(element: T) {
-        if (seen.add(element)) queue.add(element)
-    }
-}
+import java.util.*
+import kotlin.collections.ArrayDeque
 
 // Performs BFS
 inline fun <T : Any> bfs(
     // Initial value for the search
     initial: T,
     // Condition for the "end" case (if this yields true, the function will return)
-    condition: SearchContext<T>.(T) -> Boolean,
+    condition: (T) -> Boolean,
     // from current element to list of next candidates
-    searcher: SearchContext<T>.(T) -> List<T>
+    searcher: (T) -> List<T>
 ): T? {
-    val context = SearchContext(initial)
-    with(context) {
-        while (queue.isNotEmpty()) {
-            val next = queue.removeLast()
-            if (condition(next)) return next
-            else searcher(next).forEach { process(it) }
+    val queue = ArrayDeque<T>()
+    val seen = hashSetOf<T>()
+    val process = { el: T -> if (seen.add(el)) queue.add(el) }
+    process(initial)
+
+    while (queue.isNotEmpty()) {
+        val next = queue.removeLast()
+        if (condition(next)) return next
+        else searcher(next).forEach { process(it) }
+    }
+
+    return null
+}
+
+// Performs A* algorithm
+inline fun <T : Any> aStar(
+    // Initial value for the fill
+    initial: T,
+    // Target function (if true the function returns)
+    target: (T) -> Boolean,
+    // Heuristic/cost function
+    crossinline heuristic: (T) -> Int,
+    // Distance function
+    distance: (T, T) -> Int,
+    // from current element to list of next neighbours
+    neighbors: (T) -> List<T>
+): List<T>? {
+    // Not going to use the search context here as it would become
+    // way too complicated
+    val cameFrom = mutableMapOf<T, T>()
+    val currentScores = mutableMapOf<T, Int>()
+
+    val score: (T) -> Int = { currentScores[it] ?: Int.MAX_VALUE }
+    val tentativeScore: (T) -> Int = { score(it) + heuristic(it) }
+
+    val queue = PriorityQueue(Comparator.comparingInt(tentativeScore))
+
+    queue.add(initial)
+    currentScores[initial] = 0
+
+    while (queue.isNotEmpty()) {
+        val current = queue.remove()!! // Java D:
+        if (target(current)) {
+            // Retrieve the path based on cameFrom
+            return generateSequence(current) { cameFrom[it] }
+                .toList().asReversed()
+        }
+
+        neighbors(current).forEach { neighbor ->
+            val tentative = score(current) + distance(current, neighbor)
+            if (tentative < score(neighbor)) {
+                cameFrom[neighbor] = current
+                currentScores[neighbor] = tentative
+                if (neighbor !in queue) queue.add(neighbor)
+            }
         }
     }
 
     return null
 }
 
-// Performs floodfill, using a condition
-// Similar to BFS except the result is a set
-inline fun <T : Any> floodFill(
-    // Initial value for the fill
-    initial: T,
-    // Condition to continue visiting
-    condition: SearchContext<T>.(T) -> Boolean,
-    // from current element to list of next candidates
-    searcher: SearchContext<T>.(T) -> List<T>
-) = buildSet {
-    with(SearchContext(initial)) {
-        while (queue.isNotEmpty()) {
-            val next = queue.removeLast()
-            if (condition(next) && add(next)) {
-                searcher(next).forEach { process(it) }
-            }
-        }
-    }
-}
+// Same thing as above, but with positions implemented for convenience
+inline fun aStar(
+    initial: Position,
+    target: (Position) -> Boolean,
+    crossinline cost: (Position) -> Int = { it.manhattanDistanceTo(initial) },
+    isInBounds: (Position) -> Boolean
+) = aStar(
+    initial = initial,
+    target = target,
+    heuristic = cost,
+    distance = { a, b -> a.manhattanDistanceTo(b) },
+    neighbors = { it.adjacent().filter(isInBounds) }
+)
+
+inline fun aStar(
+    initial: Position,
+    target: Position,
+    crossinline cost: (Position) -> Int = { it.manhattanDistanceTo(initial) },
+    isInBounds: (Position) -> Boolean
+) = aStar(initial, { it == target }, cost, isInBounds)

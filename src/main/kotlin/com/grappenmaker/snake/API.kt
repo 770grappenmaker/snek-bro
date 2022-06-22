@@ -9,13 +9,15 @@ import kotlin.system.measureTimeMillis
 
 fun Application.setupRouting(configuration: Configuration) = routing {
     get("/") {
-        call.respond(BotInfoRequest(
-            author = author,
-            color = configuration.color,
-            head = configuration.head,
-            tail = configuration.tail,
-            version = Versions.version
-        ))
+        call.respond(
+            BotInfo(
+                author = author,
+                color = configuration.color,
+                head = configuration.head,
+                tail = configuration.tail,
+                version = Versions.version
+            )
+        )
     }
 
     post("/start") {

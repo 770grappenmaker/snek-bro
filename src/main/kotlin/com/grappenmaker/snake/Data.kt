@@ -4,7 +4,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class BotInfoRequest(
+data class BotInfo(
     @SerialName("apiversion") val apiVersion: String = "1",
     val author: String,
     val color: String,
@@ -99,6 +99,8 @@ data class BattleSnake(
     val squad: String,
     val customizations: SnakeCustomization
 )
+
+val BattleSnake.tail get() = body.last()
 
 @Serializable
 data class SnakeCustomization(

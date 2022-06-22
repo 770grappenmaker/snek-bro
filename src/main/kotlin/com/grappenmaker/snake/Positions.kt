@@ -31,6 +31,14 @@ val Direction.position get() = when (this) {
 @Serializable
 data class Position(val x: Int, val y: Int)
 
+fun Position.asDirection() = when (x to y) {
+    0 to 1 -> Direction.UP
+    -1 to 0 -> Direction.LEFT
+    1 to 0 -> Direction.RIGHT
+    0 to -1 -> Direction.DOWN
+    else -> null
+}
+
 operator fun Position.plus(other: Position) = Position(x + other.x, y + other.y)
 operator fun Position.minus(other: Position) = Position(x - other.x, y - other.y)
 operator fun Position.plus(other: Direction) = plus(other.position)
@@ -57,3 +65,6 @@ fun rectFromSize(width: Int, height: Int) = Rectangle(Position(0, 0), Position(w
 
 operator fun Rectangle.contains(other: Position) =
     other.x >= a.x && other.y >= a.y && other.y <= b.y && other.x <= b.x
+
+fun rectContains(width: Int, height: Int, position: Position) =
+    position.x in 0 until width && position.y in 0 until height
